@@ -35,10 +35,10 @@ function processReceipt(receipt) {
     if(isNaN(price)) {
       throw new InputError('property price of each item in receipt must represent a valid float value')
     }
-    item.price = price;
     total += price;
-
+    item.price = price;
   };
+  total = total.toFixed(3);
 
   if(!receipt.total || typeof(receipt.total) != "string") {
     throw new InputError('receipt must include property total of type string');
@@ -58,8 +58,8 @@ function processReceipt(receipt) {
     throw new InputError('receipt must include property purchaseTime of type string');
   }
   const timestamp = Date.parse(receipt.purchaseDate + "T" + receipt.purchaseTime);
-  if(!isNaN(timestamp)) {
-    throw new InputError('property purchaseDate represent a valid date and property purchaseTime must represent a valid time');
+  if(isNaN(timestamp)) {
+    throw new InputError('property purchaseDate must represent a valid date and property purchaseTime must represent a valid time');
   }
 
   return {
@@ -75,12 +75,14 @@ function calculateReceiptPoints(receipt) {
   let points = 0;
 
   // One point for every alphanumeric character in the retailer name.
-  points += receipt.retailer.reduce((letter, total) => {
+  points += Array.from(receipt.retailer).reduce((total, letter) => {
     if((letter >= 'a' && letter <= 'z') || (letter >= 'A' && letter <= 'Z') || (letter >= '0' && letter <= '9')) {
       return total + 1;
     }
     return total;
   }, 0);
+
+  console.log(points)
 
   // Calculate the total
   for(let item of receipt.items) {
@@ -88,22 +90,30 @@ function calculateReceiptPoints(receipt) {
     if(item.shortDescription && typeof(item.shortDescription) == 'string' && item.shortDescription.trim().length % 3 == 0) {
       points += Math.ceil(item.price * 0.2);
     }
-    return total + price;
   };
 
-  const total = Number(item.total);
+  console.log(points)
+
+  const total = Number(receipt.total);
 
   // 50 points if the total is a round dollar amount with no cents.
   if(total % 1 == 0) {
     points += 50;
   }
+
+  console.log(points)
+
   // 25 points if the total is a multiple of 0.25.
   if(total % 0.25 == 0) {
     points += 25;
   }
 
+  console.log(points)
+
   // 5 points for every two items on the receipt.
   points += 5 * Math.floor(receipt.items.length / 2);
+
+  console.log(points)
 
   // 6 points if the day in the purchase date is odd.
   const date = new Date(receipt.purchaseTimestamp);
@@ -111,20 +121,23 @@ function calculateReceiptPoints(receipt) {
     points += 6;
   }
 
+  console.log(points)
+
   // 10 points if the time of purchase is after 2:00pm and before 4:00pm.
   if(date.getHours() == 14 || date.getHours() == 15) {
     points += 10;
   }
 
+  console.log(points)
   return points;
 }
 
 app.use(express.json());
 
 app.post("/receipts/process", (req, res) => {
-  const input_receipt = req.body;
   try {
-    const receipt = processReceipt(receipt);
+    const receipt = processReceipt(req.body);
+    receipts[receipt.id] = receipt;
     res.status(201).json({id: receipt.id});
   } catch(error) {
     res.status(400).send(error.message);
